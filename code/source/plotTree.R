@@ -9,7 +9,7 @@ library(docstring)
 
 print('sourcing p l o t T r e e .R : functions plotTree1 , plotTreeFb')
 
-plotTree1 <- function(rg,tri, plot.splitval=T, ...){
+plotTree1 <- function(rg, tri, plot.splitval=T, ...){
   #' plot a single ranger tree, the split nodes only
   #' 
   #' based on ranger's treeInfo
@@ -86,7 +86,7 @@ plotTree1 <- function(rg,tri, plot.splitval=T, ...){
     }
   el
   
-  # for trees that are not stumps or have only hight 1 (with one child?)
+  # for trees that are not stumps or have only height 1 (with one child?)
   # graph_from_edgelist(el[,1:2]) -> g1
   
   # info for left or right child

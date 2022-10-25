@@ -76,10 +76,6 @@ createDMd1 <- function(forest, dft){
           A[i,j,tri]<-1  
           A[j,i,tri]<-1
         }
-        # old loop , i,j looping over square of sameTN x sameTN
-        #for(j in sameTN){
-        #  A[i,j,tri]<-1  # making A[,,tri] a symmetric matrix , since looping over all combinations (i,j) in sameTN x sameTN
-        #}
       }
     }
     #E1[[tri]] <<- docTN
@@ -89,7 +85,8 @@ createDMd1 <- function(forest, dft){
   d1<-function(tri1,tri2){
     B<- A[,,tri1]-A[,,tri2]
     B[upper.tri(B)] %>% abs() %>% sum() # counting how many pairs of obs are treated differently by tri1 and tri2
-  } # a function
+  } # end of d1
+  
   return(outer(1:nT,1:nT,Vectorize(d1)) * 2 / (nObs*(nObs-1))) # a matrix , dim  nT , nT
   # divide by n over 2 = divide by n*(n-1)/2 = multiply by 2 / (n*(n-1)) 
   # with n = number of observations nObs , number of rows in data set , here: the training data
@@ -108,43 +105,34 @@ createDMd2 <- function(forest, dft){
               # type='response' # it's the default
   )$predictions
   
-  if(forest$treetype=='Classification'){
-  #  assertthat::assert_that(length(dim(pp))==2, msg = paste('classification tree should return 2-dim predictions. got' , length(dim(pp))))
-    # print('Classification tree, we got class predictions. do nothing')
-    f1<-function(vec,vec2) mean(abs(vec-vec2))
-    # f1<-function(vec,vec2) mean((vec-vec2)^2) # mse as in Banerjee definition
-    # f1<-function(vec,vec2) mean(log(vec/vec2)) # needs windsor-ised probabilities, no zero!
-  }else{
-    if(forest$treetype=='Probability estimation'){
-      pp <- pp[,2,] # only keep the probability for CAD==Yes
-      # assertthat::assert_that(all(dim(pp)==c(nrow(dft),forest$num.trees)),msg='dimensions wrong in createDMd2')
-      f1 <- function(vec,vec2) mean(abs(vec-vec2)) # mean abs error for the probabilities for CAD ==Yes
-    }else{
-        print(paste('got unknown tree type in forest : ' , forest$treetype))
-      }
+  if(forest$treetype=='Probability estimation'){
+      pp <- pp[,'Yes',] # only keep the probability for CAD==Yes
     }
   
-  f2<-function(i,j) f1(pp[,i],pp[,j]) # trees i,j
-  nT<-forest$num.trees
-  return( outer(1:nT,1:nT,Vectorize(f2)) )
+  mae <- function(vec,vec2) mean(abs(vec-vec2)) # mean abs error for the probabilities for CAD ==Yes
+  d2 <- function(i,j) mae(pp[,i],pp[,j]) # trees i,j
+  nT <- forest$num.trees
+  
+  return( outer(1:nT,1:nT,Vectorize(d2)) )
   
 }
 
 #### Shannon banks metric , tree metric ####
+
 rt2fbt<-function(rgf=rg$forest, trindx=1){ 
   #' rt2fbt : ranger tree to full binary tree
   #' 
   #' @param rgf : forest object of a ranger object (a random forest)
   #' @param trindx : tree index , only 1 index, not a list of indices!
   
-  t1<-rgf$child.nodeIDs[[trindx]] # a fixed tree
-  ld<-t1[[1]]  # left children / daughters
-  rd<-t1[[2]]  # right
+  t1 <- rgf$child.nodeIDs[[trindx]] # a fixed tree
+  child.l <- t1[[1]]  # left children
+  child.r <- t1[[2]]  # right
   
   mf3<-function(a=0,b=1,k=0) {
     #' mf3 : my function 3 :-(
     #' 
-    #' a ranger forest tree is coded with left and right daughters (2 lists) for each (non terminal) node.
+    #' a ranger forest tree is coded with left and right children (2 lists) for each (non terminal) node.
     #' and an extra list for the split variables used at the inner nodes.
     #' a full binary tree will be coded as a sequence (single list) with 
     #' each list position referring to a fixed inner node in the layout of a full binary tree.
@@ -157,8 +145,8 @@ rt2fbt<-function(rgf=rg$forest, trindx=1){
     #' @return tree / subtree as a single list
     
     #### vector z created at last split nodes (no further split nodes, next are leaves) ####
-    if(ld[a+1]==0){
-      if(rd[a+1]==0){
+    if(child.l[a+1]==0){
+      if(child.r[a+1]==0){
         z<-c(rep(0,2**k-1)) # for this last split node (no further splitting, next is a leaf) the tree has (at least) 2**k-1 inner nodes. Local knowledge
         #print(paste(k, ' created z of length ' , length(z)))
         # z<-c(rep(0,2**(k+1)-1)) # unnecessary to create at the level of leaves / terminal nodes, there are no split variables to document! 
@@ -170,10 +158,10 @@ rt2fbt<-function(rgf=rg$forest, trindx=1){
         return(-1)
       }
     }
-    #### at split nodes ####
+    #### at split nodes that have split node children ####
     else{ #### recursive function calls for left and right sub-trees ####
-      left.st<-mf3(ld[a+1], 2*b, k+1)
-      right.st<-mf3(rd[a+1], 2*b+1, k+1)
+      left.st<-mf3(child.l[a+1], 2*b, k+1)
+      right.st<-mf3(child.r[a+1], 2*b+1, k+1)
       
       #print('merging')
       #print(z1)
@@ -224,6 +212,7 @@ sb<-function(tri1,tri2){
 
 createDMsb <- function(forest){
   
+  # encode all ranger trees as full binary trees
   lapply(1:forest$num.trees, function(i) rt2fbt(forest,i) ) ->
     A
   

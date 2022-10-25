@@ -6,7 +6,7 @@ rg <- doc[[1]]$rg
 rs <- doc[[1]]$resample
 data.train <- doc[[1]]$'bootstrapped training data'
 
-P1 <- predict(rg,type = 'terminalNodes', data = data.train)$predictions
+P1 <- predict(rg,type = 'terminalNodes', data = data.train)$predictions[,1:3]
 
 # number of terminal nodes in tree 1
 tri <- 1

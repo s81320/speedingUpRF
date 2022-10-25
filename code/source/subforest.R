@@ -33,10 +33,11 @@ forestHull<- function(forest){
 }
 
 tNodes <- function(forest, tri){
-  #' terminal nodes for th tri-th tree in a ranger forest
+  #' node IDs for terminal nodes for th tri-th tree in a ranger forest
   #' 
   #' terminal nodes are those where child nodes (left and right) are 0
   #' 
   which(forest$child.nodeIDs[[tri]][[1]]==0)-1
 }
+
 

@@ -1,3 +1,5 @@
+library(dplyr)
+
 source('code/timbR.R')
 source('code/source/distance-matrices.R')
 
@@ -45,12 +47,14 @@ Td2 <- measure_distances(rg, metric='prediction', test_data = Cleve[,1:11] ) # d
 Myd2 <- createDMd2(rg$forest,dft = Cleve[,1:11])
 (Td2 == Myd2) %>% all
 
+# make sure, that equality does not follow from some weired error, like both objects are NULL
 Td2[1:2,1:10]
 Myd2[1:2,1:10]
 
-microbenchmark::microbenchmark(measure_distances(rg, metric='prediction', test_data = Cleve[,1:11] )
-                               , createDMd2(rg$forest,dft = Cleve[,1:11])
-                               , times=10
+microbenchmark::microbenchmark('timbR measure distances'=measure_distances(rg, metric='prediction', test_data = Cleve[,1:11] )
+                               , 'create DM d2'=createDMd2(rg$forest,dft = Cleve[,1:11])
+                               , times=2
+                               , check='identical' # supposed to check if both functions generate the same data
                                )
 
 

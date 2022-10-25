@@ -18,7 +18,7 @@ library(xtable)
 library(caret)
 library(dplyr)
 
-load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
+load('data/CleveHungSwissVA.rda') # loads the data sets Cleve, Hung, Swiss, VA
 
 source('code/source/prep.R') # calcLogloss (on forests) , calcLogloss2 (on predicted probabilities)
 source('code/source/subforest.R') # subforest , tNodes
@@ -239,10 +239,14 @@ f8 <- function(tri,nodeID){
   #' for a node in a tree get the positive class (emp.) probability 
   #' at the node (split or terminal)
   #' needs d.split and data.train in parent environment
-  
+  #' needs sf in parent environment
+
   print(nodeID)
   
-  # checks if nodeID is terminal in forest sf - not in ranger object rg
+  # checks if nodeID is terminal in tri in forest sf - not in ranger object rg # WHY??
+  # if sf is a subforest and the tree is selected into the subforest, then the tree is the same??!!
+  # the numbering is different, tri is the tree number in the subforest. Which may be different from its index in the full forest 
+  # numbers are the same only as long as the subforest selects sequentially starting with the first tree: 1,2,3,...,sf$num.trees
   nodeID %>% 
     ID2pos %>% 
     sf$child.nodeIDs[[tri]][[1]][.] %>% 
@@ -259,7 +263,7 @@ f8 <- function(tri,nodeID){
 }
 
 sf <- subforest(rg$forest,1:3)
-tri <- 2
+tri <- 3
 terminal.nodes <- tNodes(forest = rg$forest , tri=tri)
 
 ti <- treeInfo(rg,tri)
@@ -267,7 +271,7 @@ ti
 print('Select a split node:')
 print(base::setdiff(1:(terminal.nodes%>% (function(x) x[length(x)])) , terminal.nodes)) # the largest nodeID will be fo a terminal node
 # terminal nodes are already in ascending order
-last.nodeID.as.split <- 5 # not generally tested. # for trees 1,2,3 put 6,5,6 as last.nodeID.split
+last.nodeID.as.split <- 6 # not generally tested. # for trees 1,2,3 put 6,5,6 as last.nodeID.split
 
 if(last.nodeID.as.split %in% terminal.nodes){
   simpleError(paste('this node is not a split node, it is a terminal node in the full tree: ', last.nodeID.as.split))
@@ -278,7 +282,7 @@ if(last.nodeID.as.split %in% terminal.nodes){
 }
 
 last.node.pos <-  ID2pos(last.nodeID)
-# cutoff at last tree 
+# cutoff at last node given by last.nodeID
 sf$child.nodeIDs[[tri]][[1]] <- sf$child.nodeIDs[[tri]][[1]][1:last.node.pos]
 sf$child.nodeIDs[[tri]][[2]] <- sf$child.nodeIDs[[tri]][[2]][1:last.node.pos]
 # new terminal nodes need to have children as 0
@@ -299,15 +303,25 @@ sf$terminal.class.counts[[1]]
 sf$terminal.class.counts[[tri]] <- lapply(0:last.nodeID , FUN=f8 , tri=tri)
 
 forestHull(sf) -> sfh
+class(sfh) # this is a ranger object
 
 sfh$num.trees
 sfh$treetype <- rg$treetype # 'Probability estimation'
 
-treeInfo(object = forestHull(sf), tree = tri)
-
-plotTree1(forestHull(sf),tri)
-plotTree1(forestHull(sf),3)
+# you can do ranger-stuff with it
+treeInfo(object = sfh, tree = tri)
 
 sfh$importance.mode <- rg$importance.mode
 predict(sfh,data = data.train[inbag.obs.tri,], type='terminalNodes')$prediction
 
+# my function for ranger objects
+plotTree1(sfh,tri)
+
+# plot shortened tree(s)
+Vectorize(function(i) plotTree1(sfh,i))(1:3)
+
+# plot full trees
+Vectorize(function(i) plotTree1(rg,i))(1:3)
+
+# maybe I can plot subtrees??
+# since ranger trees are often high (deep)?!
